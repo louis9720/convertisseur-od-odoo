@@ -14,7 +14,7 @@ with open('toutes_societes.json', 'r', encoding='utf-8') as f:
 
 @app.route('/')
 def index():
-(return send_file('index.html')
+    return send_file('index.html')
 
 @app.route('/api/societes', methods=['GET'])
 def get_societes():
@@ -37,15 +37,23 @@ def convertir():
     if file_type == 'pdf':
         content = [
             {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": file_b64}},
-            {"type": "text", "text": "Tu es expert-comptable. Extrais TOUTES les lignes d'écritures comptables. Retourne UNIQUEMENT un JSON valide sans balises markdown : {\"ecritures\":[{\"compte\":\"6411\",\"libelle\":\"Salaires\",\"debit\":1500,\"credit\":0}]}. Montants en nombres, 0 si absent, ignorer les totaux."}
+            {"type": "text", "text": "Tu es expert-comptable. Extrais TOUTES les lignes d'ecritures comptables. Retourne UNIQUEMENT un JSON valide sans balises markdown : {\"ecritures\":[{\"compte\":\"6411\",\"libelle\":\"Salaires\",\"debit\":1500,\"credit\":0}]}. Montants en nombres, 0 si absent, ignorer les totaux."}
         ]
     else:
-        content = [{"type": "text", "text": f"Contenu du fichier :\n\n{file_content_text}\n\nExtrais TOUTES les lignes d'écritures. JSON uniquement sans markdown : {{\"ecritures\":[{{\"compte\":\"6411\",\"libelle\":\"Salaires\",\"debit\":1500,\"credit\":0}}]}}. Montants en nombres, 0 si absent, ignorer les totaux."}]
+        content = [{"type": "text", "text": f"Contenu du fichier :\n\n{file_content_text}\n\nExtrais TOUTES les lignes d'ecritures. JSON uniquement sans markdown : {{\"ecritures\":[{{\"compte\":\"6411\",\"libelle\":\"Salaires\",\"debit\":1500,\"credit\":0}}]}}. Montants en nombres, 0 si absent, ignorer les totaux."}]
 
     response = requests.post(
         'https://api.anthropic.com/v1/messages',
-        headers={'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01'},
-        json={'model': 'claude-sonnet-4-6', 'max_tokens': 4000, 'messages': [{'role': 'user', 'content': content}]},
+        headers={
+            'Content-Type': 'application/json',
+            'x-api-key': ANTHROPIC_API_KEY,
+            'anthropic-version': '2023-06-01'
+        },
+        json={
+            'model': 'claude-sonnet-4-6',
+            'max_tokens': 4000,
+            'messages': [{'role': 'user', 'content': content}]
+        },
         timeout=60
     )
 
@@ -59,23 +67,32 @@ def convertir():
     try:
         parsed = json.loads(clean)
     except:
-        return jsonify({'error': 'Impossible de parser la réponse'}), 500
+        return jsonify({'error': 'Impossible de parser la reponse'}), 500
 
     plan = PLANS_COMPTABLES[societe]
     ecritures = []
     for e in parsed.get('ecritures', []):
         r = rapprocher_compte(str(e.get('compte', '')).strip(), plan)
-        ecritures.append({**e, 'compte_odoo': r['code'], 'compte_nom': r['nom'], 'compte_found': r['found'], 'compte_approx': r['approx']})
+        ecritures.append({
+            **e,
+            'compte_odoo': r['code'],
+            'compte_nom': r['nom'],
+            'compte_found': r['found'],
+            'compte_approx': r['approx']
+        })
 
     return jsonify({'ecritures': ecritures})
 
 def rapprocher_compte(code, plan):
     c = code.replace(' ', '')
-    if c in plan: return {'code': c, 'nom': plan[c], 'found': True, 'approx': False}
+    if c in plan:
+        return {'code': c, 'nom': plan[c], 'found': True, 'approx': False}
     padded = c.ljust(8, '0')
-    if padded in plan: return {'code': padded, 'nom': plan[padded], 'found': True, 'approx': False}
+    if padded in plan:
+        return {'code': padded, 'nom': plan[padded], 'found': True, 'approx': False}
     for k, v in plan.items():
-        if k.startswith(c[:4]): return {'code': k, 'nom': v, 'found': True, 'approx': True}
+        if k.startswith(c[:4]):
+            return {'code': k, 'nom': v, 'found': True, 'approx': True}
     return {'code': padded, 'nom': 'COMPTE INCONNU', 'found': False, 'approx': False}
 
 if __name__ == '__main__':
