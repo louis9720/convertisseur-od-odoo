@@ -14,7 +14,7 @@ with open('toutes_societes.json', 'r', encoding='utf-8') as f:
 
 @app.route('/')
 def index():
-    return send_file('static/index.html')
+(return send_file('index.html')
 
 @app.route('/api/societes', methods=['GET'])
 def get_societes():
