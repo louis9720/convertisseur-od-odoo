@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Convertisseur OD → Odoo | Fabricom</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #F0F4F8; color: #1a202c; min-height: 100vh; }
+header { background: var(--col, #1F4E79); color: white; padding: 14px 32px; display: flex; align-items: center; gap: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); transition: background 0.3s; }
+header h1 { font-size: 17px; font-weight: 600; }
+.subtitle { font-size: 12px; opacity: 0.75; }
+.logo { width: 36px; height: 36px; background: rgba(255,255,255,0.2); border-radius: 8px; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
+main { max-width: 920px; margin: 28px auto; padding: 0 24px; }
+.card { background: white; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 18px; overflow: hidden; }
+.card-header { padding: 14px 20px; border-bottom: 1px solid #E2E8F0; display: flex; align-items: center; gap: 10px; }
+.card-header h2 { font-size: 13px; font-weight: 600; color: #2D3748; }
+.card-header p { font-size: 12px; color: #718096; margin-top: 1px; }
+.card-body { padding: 18px 20px; }
+.icon-box { width: 30px; height: 30px; border-radius: 7px; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
+.step-badge { background: var(--col, #1F4E79); color: white; border-radius: 50%; width: 20px; height: 20px; display:inline-flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; flex-shrink:0; }
+.societe-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; }
+.societe-btn { padding: 14px 16px; border: 2px solid #E2E8F0; border-radius: 10px; cursor: pointer; background: white; text-align: left; transition: all 0.15s; width:100%; }
+.societe-btn:hover { border-color: #A0AEC0; background: #F7FAFC; }
+.societe-btn.active { color: white; border-color: transparent; }
+.s-name { font-size: 13px; font-weight: 600; display: block; }
+.s-count { font-size: 11px; opacity: 0.75; margin-top: 2px; display: block; }
+.drop-zone { border: 2px dashed #CBD5E0; border-radius: 10px; padding: 28px; text-align: center; cursor: pointer; transition: all 0.2s; background: #F7FAFC; }
+.drop-zone:hover, .drop-zone.over { border-color: #1F4E79; background: #EBF3FB; }
+.dz-icon { font-size: 32px; margin-bottom: 8px; }
+.drop-zone h3 { font-size: 14px; font-weight: 500; color: #2D3748; margin-bottom: 3px; }
+.drop-zone p { font-size: 12px; color: #718096; }
+.file-chip { display:none; align-items:center; gap:8px; padding:9px 13px; background:#EBF3FB; border-radius:8px; margin-top:10px; font-size:13px; }
+.params-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+label { display:block; font-size:11px; font-weight:600; color:#4A5568; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.03em; }
+input, select { width:100%; padding:8px 10px; border:1px solid #CBD5E0; border-radius:6px; font-size:13px; color:#2D3748; background:white; }
+input:focus, select:focus { outline:none; border-color:#1F4E79; box-shadow:0 0 0 3px rgba(31,78,121,0.1); }
+.btn-primary { width:100%; padding:11px; background:var(--col,#1F4E79); color:white; border:none; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; transition:opacity 0.2s; }
+.btn-primary:hover { opacity:0.88; }
+.btn-primary:disabled { background:#A0AEC0; cursor:not-allowed; opacity:1; }
+.status { display:none; padding:11px 15px; border-radius:8px; font-size:13px; margin-top:10px; }
+.status.info { background:#EBF8FF; color:#2B6CB0; }
+.status.success { background:#F0FFF4; color:#276749; }
+.status.error { background:#FFF5F5; color:#C53030; }
+.status.warning { background:#FFFAF0; color:#C05621; }
+.table-wrap { overflow-x:auto; border:1px solid #E2E8F0; border-radius:8px; }
+table { width:100%; border-collapse:collapse; font-size:12px; }
+thead th { background:var(--col,#1F4E79); color:white; padding:8px 11px; text-align:left; font-weight:500; white-space:nowrap; }
+tbody tr:nth-child(even) { background:#F7FAFC; }
+tbody tr:hover { background:#EBF3FB; }
+tbody td { padding:6px 11px; border-bottom:1px solid #E2E8F0; white-space:nowrap; max-width:200px; overflow:hidden; text-overflow:ellipsis; }
+.badge-ok { background:#C6F6D5; color:#276749; border-radius:4px; padding:2px 6px; font-size:11px; }
+.badge-approx { background:#BEE3F8; color:#2B6CB0; border-radius:4px; padding:2px 6px; font-size:11px; }
+.badge-warn { background:#FEEBC8; color:#C05621; border-radius:4px; padding:2px 6px; font-size:11px; }
+.balance-bar { display:flex; gap:14px; align-items:center; padding:9px 13px; background:#F7FAFC; border-radius:8px; margin-top:10px; font-size:12px; flex-wrap:wrap; }
+.balance-ok { color:#276749; font-weight:600; }
+.balance-ko { color:#C53030; font-weight:600; }
+.btn-dl { padding:7px 16px; background:#276749; color:white; border:none; border-radius:6px; font-size:12px; font-weight:500; cursor:pointer; white-space:nowrap; }
+.btn-dl:hover { background:#1C4532; }
+@media(max-width:600px){ .params-grid{grid-template-columns:1fr;} .societe-grid{grid-template-columns:1fr;} main{padding:0 12px;} }
+</style>
+</head>
+<body>
+<header id="header">
+  <div class="logo">📊</div>
+  <div>
+    <h1>Convertisseur OD → Odoo</h1>
+    <div class="subtitle" id="headerSub">Sélectionnez une société pour commencer</div>
+  </div>
+</header>
+<main>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="step-badge">1</span>
+      <div class="icon-box" style="background:#EBF3FB;">🏢</div>
+      <div><h2>Sélectionner la société</h2><p>Le plan comptable correspondant est chargé automatiquement</p></div>
+    </div>
+    <div class="card-body">
+      <div class="societe-grid" id="societeGrid"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="step-badge">2</span>
+      <div class="icon-box" style="background:#F0FFF4;">📄</div>
+      <div><h2>Importer le fichier source</h2><p>PDF, Excel ou CSV contenant les écritures comptables</p></div>
+    </div>
+    <div class="card-body">
+      <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+        <div class="dz-icon">📂</div>
+        <h3>Glisser-déposer votre fichier ici</h3>
+        <p>ou cliquer pour sélectionner — PDF, Excel (.xlsx), CSV</p>
+        <input type="file" id="fileInput" accept=".pdf,.xlsx,.xls,.csv" style="display:none" onchange="handleFile(this.files[0])">
+      </div>
+      <div class="file-chip" id="fileChip">
+        <span>📄</span><span id="fileName">—</span>
+        <button onclick="resetFile()" style="font-size:11px;padding:2px 7px;border:1px solid #CBD5E0;border-radius:4px;background:white;cursor:pointer;margin-left:auto;">✕</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="step-badge">3</span>
+      <div class="icon-box" style="background:#FFFAF0;">⚙️</div>
+      <div><h2>Paramètres de l'écriture</h2><p>Journal, date et référence appliqués à toutes les lignes</p></div>
+    </div>
+    <div class="card-body">
+      <div class="params-grid">
+        <div>
+          <label>Journal</label>
+          <select id="journal">
+            <option value="Opérations diverses">Opérations diverses (OD)</option>
+            <option value="Banque">Banque</option>
+            <option value="Caisse">Caisse</option>
+            <option value="Achats">Achats</option>
+            <option value="Ventes">Ventes</option>
+          </select>
+        </div>
+        <div>
+          <label>Date de l'écriture</label>
+          <input type="date" id="dateEcriture">
+        </div>
+        <div>
+          <label>Référence</label>
+          <input type="text" id="reference" placeholder="ex: Paie mai 2026">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="step-badge">4</span>
+      <div class="icon-box" style="background:#EBF3FB;">🤖</div>
+      <div><h2>Extraction et conversion</h2><p>L'IA lit le document et rapproche les comptes — clé API sécurisée côté serveur</p></div>
+    </div>
+    <div class="card-body">
+      <button class="btn-primary" id="btnConvert" onclick="convertir()">⚡ Extraire et convertir pour Odoo</button>
+      <div class="status" id="status"></div>
+    </div>
+  </div>
+
+  <div class="card" id="resultCard" style="display:none">
+    <div class="card-header">
+      <span class="step-badge">5</span>
+      <div class="icon-box" style="background:#F0FFF4;">✅</div>
+      <div><h2>Résultat — prêt à importer dans Odoo</h2><p id="resultSubtitle"></p></div>
+      <button class="btn-dl" onclick="telecharger()" style="margin-left:auto;">⬇ Télécharger Excel</button>
+    </div>
+    <div class="card-body">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Journal</th><th>Date</th><th>Référence</th><th>Compte Odoo</th><th>Libellé</th><th>Débit</th><th>Crédit</th><th>Statut</th></tr></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+      <div class="balance-bar" id="balanceBar"></div>
+    </div>
+  </div>
+
+</main>
+<script>
+const CONFIG = {"FABRICOM_GUADELOUPE":{"nom":"Fabricom Guadeloupe","couleur":"#1F4E79"},"FABRICOM_MARTINIQUE":{"nom":"Fabricom Martinique","couleur":"#276749"},"DOM_AUTO":{"nom":"Dom Auto","couleur":"#6B2737"},"STORE_CENTER":{"nom":"Store Center","couleur":"#744210"}};
+let societeActive = null;
+let societesCounts = {};
+let currentFile = null;
+let extractedData = [];
+
+document.getElementById('dateEcriture').value = new Date().toISOString().split('T')[0];
+
+// Charger les sociétés depuis le serveur
+fetch('/api/societes').then(r=>r.json()).then(data => {
+  societesCounts = data;
+  renderSocietes();
+}).catch(()=>{ renderSocietes(); });
+
+function renderSocietes() {
+  const grid = document.getElementById('societeGrid');
+  grid.innerHTML = '';
+  Object.entries(CONFIG).forEach(([key, cfg]) => {
+    const count = societesCounts[key] || '...';
+    const btn = document.createElement('button');
+    btn.className = 'societe-btn';
+    btn.dataset.key = key;
+    btn.innerHTML = '<span class="s-name">🏢 ' + cfg.nom + '</span><span class="s-count">' + count + ' comptes</span>';
+    btn.onclick = () => selectSociete(key);
+    grid.appendChild(btn);
+  });
+}
+
+function selectSociete(key) {
+  societeActive = key;
+  const cfg = CONFIG[key];
+  document.documentElement.style.setProperty('--col', cfg.couleur);
+  document.getElementById('header').style.background = cfg.couleur;
+  document.getElementById('headerSub').textContent = cfg.nom + ' — ' + (societesCounts[key]||'') + ' comptes chargés';
+  document.querySelectorAll('.societe-btn').forEach(b => { b.classList.remove('active'); b.style.background=''; b.style.color=''; });
+  const a = document.querySelector('[data-key="'+key+'"]');
+  a.classList.add('active'); a.style.background = cfg.couleur; a.style.color = 'white';
+  document.getElementById('resultCard').style.display = 'none';
+  showStatus('✅ Société <strong>' + cfg.nom + '</strong> sélectionnée.', 'success');
+}
+
+function onDragOver(e) { e.preventDefault(); document.getElementById('dropZone').classList.add('over'); }
+function onDragLeave(e) { document.getElementById('dropZone').classList.remove('over'); }
+function onDrop(e) { e.preventDefault(); document.getElementById('dropZone').classList.remove('over'); if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); }
+
+function handleFile(file) {
+  currentFile = file;
+  document.getElementById('fileName').textContent = file.name;
+  document.getElementById('fileChip').style.display = 'flex';
+  document.getElementById('dropZone').style.display = 'none';
+  document.getElementById('resultCard').style.display = 'none';
+}
+
+function resetFile() {
+  currentFile = null; extractedData = [];
+  document.getElementById('fileInput').value = '';
+  document.getElementById('fileChip').style.display = 'none';
+  document.getElementById('dropZone').style.display = 'block';
+  document.getElementById('resultCard').style.display = 'none';
+}
+
+function showStatus(msg, type) {
+  const s = document.getElementById('status');
+  if(!msg){s.style.display='none';return;}
+  s.style.display='block'; s.className='status '+type; s.innerHTML=msg;
+}
+
+async function convertir() {
+  if(!societeActive){showStatus('⚠️ Veuillez sélectionner une société.','warning');return;}
+  if(!currentFile){showStatus('⚠️ Veuillez sélectionner un fichier.','warning');return;}
+  const btn = document.getElementById('btnConvert');
+  btn.disabled=true; btn.textContent='⏳ Analyse en cours...';
+  showStatus('🤖 Lecture du document et extraction des écritures...','info');
+  document.getElementById('resultCard').style.display='none';
+  try {
+    let body;
+    if(currentFile.name.toLowerCase().endsWith('.pdf')) {
+      const b64 = await fileToBase64(currentFile);
+      body = {societe: societeActive, file_b64: b64, file_type: 'pdf'};
+    } else {
+      const ab = await currentFile.arrayBuffer();
+      const wb = XLSX.read(ab,{type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const txt = XLSX.utils.sheet_to_csv(ws);
+      body = {societe: societeActive, file_content_text: txt, file_type: 'excel'};
+    }
+    const resp = await fetch('/api/convertir', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+    if(!resp.ok){const e=await resp.json();throw new Error(e.error||resp.statusText);}
+    const data = await resp.json();
+    extractedData = data.ecritures || [];
+    if(!extractedData.length){showStatus('⚠️ Aucune écriture détectée.','warning');}
+    else{showStatus('✅ '+extractedData.length+' ligne(s) extraite(s) avec succès.','success');afficherResultats();}
+  } catch(err) {
+    showStatus('❌ Erreur : '+err.message,'error');
+  }
+  btn.disabled=false; btn.textContent='⚡ Extraire et convertir pour Odoo';
+}
+
+function afficherResultats() {
+  const journal=document.getElementById('journal').value;
+  const date=document.getElementById('dateEcriture').value;
+  const ref=document.getElementById('reference').value||'OD';
+  const tbody=document.getElementById('tableBody');
+  tbody.innerHTML='';
+  let td=0,tc=0,warns=0;
+  extractedData.forEach((row,i)=>{
+    td+=row.debit||0; tc+=row.credit||0;
+    if(!row.compte_found) warns++;
+    const tr=document.createElement('tr');
+    const compteCell=row.compte_found
+      ? row.compte_odoo+' <small style="color:#718096">'+(row.compte_nom||'').substring(0,25)+'</small>'
+      : '<span style="color:#C53030;font-style:italic">⚠ '+row.compte_odoo+'</span>';
+    const badge=!row.compte_found?'<span class="badge-warn">⚠</span>':row.compte_approx?'<span class="badge-approx">~</span>':'<span class="badge-ok">✓</span>';
+    tr.innerHTML='<td>'+(i===0?journal:'')+'</td><td>'+(i===0?date:'')+'</td><td>'+(i===0?ref:'')+'</td><td>'+compteCell+'</td><td title="'+(row.libelle||'')+'">'+(row.libelle||'').substring(0,35)+'</td><td style="text-align:right;font-family:monospace">'+(row.debit?row.debit.toFixed(2):'')+'</td><td style="text-align:right;font-family:monospace">'+(row.credit?row.credit.toFixed(2):'')+'</td><td>'+badge+'</td>';
+    tbody.appendChild(tr);
+  });
+  const diff=Math.abs(td-tc);const ok=diff<0.01;
+  document.getElementById('balanceBar').innerHTML='Total débit : <strong>'+td.toFixed(2)+'</strong> &nbsp;|&nbsp; Total crédit : <strong>'+tc.toFixed(2)+'</strong> &nbsp;|&nbsp; <span class="'+(ok?'balance-ok':'balance-ko')+'">'+(ok?'✓ Équilibré':'⚠ Écart : '+diff.toFixed(2))+'</span>'+(warns?' &nbsp;|&nbsp; <span style="color:#C05621">⚠ '+warns+' compte(s) à vérifier</span>':'');
+  document.getElementById('resultSubtitle').textContent=CONFIG[societeActive].nom+' — '+extractedData.length+' lignes'+(warns?' — '+warns+' à vérifier':' — tous les comptes rapprochés');
+  document.getElementById('resultCard').style.display='block';
+}
+
+function telecharger() {
+  const journal=document.getElementById('journal').value;
+  const date=document.getElementById('dateEcriture').value;
+  const ref=document.getElementById('reference').value||'OD';
+  const parts=date.split('-');
+  const dateFmt=parts[2]+'/'+parts[1]+'/'+parts[0];
+  const headers=['journal_id','Date','ref','line_ids/account_id','line_ids/name','line_ids/debit','line_ids/credit'];
+  const rows=extractedData.map((row,i)=>[i===0?journal:'',i===0?dateFmt:'',i===0?ref:'',row.compte_odoo+' '+row.compte_nom,row.libelle,row.debit||'',row.credit||'']);
+  const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);
+  ws['!cols']=[{wch:22},{wch:12},{wch:18},{wch:55},{wch:45},{wch:14},{wch:14}];
+  const wb2=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb2,ws,'Feuil1');
+  XLSX.writeFile(wb2,'OD_'+societeActive+'_'+date.replace(/-/g,'')+'.xlsx');
+}
+
+function fileToBase64(file){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=()=>res(r.result.split(',')[1]);
+    r.onerror=()=>rej(new Error('Erreur lecture fichier'));
+    r.readAsDataURL(file);
+  });
+}
+</script>
+</body>
+</html>
