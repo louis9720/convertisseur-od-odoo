@@ -34,18 +34,28 @@ def convertir():
     if not societe or societe not in PLANS_COMPTABLES:
         return jsonify({'error': 'Société invalide'}), 400
 
-    prompt = """Tu es expert-comptable. Ce document PDF peut contenir plusieurs types de pages : bulletins de salaire, récapitulatifs RH, et écritures comptables.
+    plan = PLANS_COMPTABLES[societe]
+    plan_str = json.dumps(plan, ensure_ascii=False)
 
-TON TRAVAIL : Trouver UNIQUEMENT les pages dont le titre contient "Écritures comptables" ou "ECRITURES COMPTABLES" et extraire toutes les lignes d'écritures de ces pages seulement.
+    prompt = f"""Tu es expert-comptable. Ce document PDF peut contenir plusieurs types de pages : bulletins de salaire, récapitulatifs RH, et écritures comptables.
 
-IGNORE complètement : les bulletins de salaire individuels, les fiches de paie, les récapitulatifs RH, les pages sans numéro de compte comptable.
+TON TRAVAIL EN 2 ÉTAPES :
 
-EXTRAIT UNIQUEMENT les lignes qui ont : un numéro de compte (ex: 6411, 421, 43702...) + un libellé + un montant débit ou crédit.
+ÉTAPE 1 - EXTRACTION : Trouver UNIQUEMENT les pages dont le titre contient "Écritures comptables" ou "ECRITURES COMPTABLES" et extraire toutes les lignes d'écritures de ces pages. Ignore complètement les bulletins de salaire, fiches de paie, récapitulatifs RH.
+
+ÉTAPE 2 - RAPPROCHEMENT : Pour chaque ligne extraite, trouver le compte Odoo exact dans le plan comptable ci-dessous. 
+- Si le numéro de compte correspond exactement → utilise-le
+- Si le numéro n'existe pas exactement → utilise le LIBELLÉ pour trouver le bon compte (ex: "ADEP" → cherche "ADEP" dans le plan, "AG2R" → cherche "AG2R", "Ircom" → cherche "IRCOM")
+- Utilise toujours le numéro de compte Odoo exact (8 chiffres) et non celui du PDF
+
+PLAN COMPTABLE ODOO :
+{plan_str}
 
 Retourne UNIQUEMENT un JSON valide sans balises markdown :
-{"ecritures":[{"compte":"6411","libelle":"Salaires, appointements","debit":27231.34,"credit":0}]}
+{{"ecritures":[{{"compte_odoo":"43734000","compte_nom":"ADEP","libelle":"ADEP SANTE (3840/01/02)","debit":0,"credit":569.76}}]}}
 
-Règles : montants en nombres, 0 si absent, ignorer les lignes de totaux, extraire TOUTES les lignes d'écritures comptables trouvées."""
+Champs obligatoires : compte_odoo (numéro exact du plan), compte_nom (nom exact du plan), libelle (libellé original du document), debit (nombre), credit (nombre).
+Règles : montants en nombres, 0 si absent, ignorer les lignes de totaux."""
 
     if file_type == 'pdf':
         content = [
@@ -82,31 +92,22 @@ Règles : montants en nombres, 0 si absent, ignorer les lignes de totaux, extrai
     except:
         return jsonify({'error': 'Impossible de parser la reponse'}), 500
 
-    plan = PLANS_COMPTABLES[societe]
     ecritures = []
     for e in parsed.get('ecritures', []):
-        r = rapprocher_compte(str(e.get('compte', '')).strip(), plan)
+        compte_odoo = str(e.get('compte_odoo', '')).strip()
+        compte_nom = e.get('compte_nom', '')
+        found = compte_odoo in plan
         ecritures.append({
-            **e,
-            'compte_odoo': r['code'],
-            'compte_nom': r['nom'],
-            'compte_found': r['found'],
-            'compte_approx': r['approx']
+            'compte_odoo': compte_odoo,
+            'compte_nom': compte_nom,
+            'libelle': e.get('libelle', ''),
+            'debit': e.get('debit', 0),
+            'credit': e.get('credit', 0),
+            'compte_found': found,
+            'compte_approx': False
         })
 
     return jsonify({'ecritures': ecritures})
-
-def rapprocher_compte(code, plan):
-    c = code.replace(' ', '')
-    if c in plan:
-        return {'code': c, 'nom': plan[c], 'found': True, 'approx': False}
-    padded = c.ljust(8, '0')
-    if padded in plan:
-        return {'code': padded, 'nom': plan[padded], 'found': True, 'approx': False}
-    for k, v in plan.items():
-        if k.startswith(c[:4]):
-            return {'code': k, 'nom': v, 'found': True, 'approx': True}
-    return {'code': padded, 'nom': 'COMPTE INCONNU', 'found': False, 'approx': False}
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
