@@ -34,13 +34,26 @@ def convertir():
     if not societe or societe not in PLANS_COMPTABLES:
         return jsonify({'error': 'Société invalide'}), 400
 
+    prompt = """Tu es expert-comptable. Ce document PDF peut contenir plusieurs types de pages : bulletins de salaire, récapitulatifs RH, et écritures comptables.
+
+TON TRAVAIL : Trouver UNIQUEMENT les pages dont le titre contient "Écritures comptables" ou "ECRITURES COMPTABLES" et extraire toutes les lignes d'écritures de ces pages seulement.
+
+IGNORE complètement : les bulletins de salaire individuels, les fiches de paie, les récapitulatifs RH, les pages sans numéro de compte comptable.
+
+EXTRAIT UNIQUEMENT les lignes qui ont : un numéro de compte (ex: 6411, 421, 43702...) + un libellé + un montant débit ou crédit.
+
+Retourne UNIQUEMENT un JSON valide sans balises markdown :
+{"ecritures":[{"compte":"6411","libelle":"Salaires, appointements","debit":27231.34,"credit":0}]}
+
+Règles : montants en nombres, 0 si absent, ignorer les lignes de totaux, extraire TOUTES les lignes d'écritures comptables trouvées."""
+
     if file_type == 'pdf':
         content = [
             {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": file_b64}},
-            {"type": "text", "text": "Tu es expert-comptable. Extrais TOUTES les lignes d'ecritures comptables. Retourne UNIQUEMENT un JSON valide sans balises markdown : {\"ecritures\":[{\"compte\":\"6411\",\"libelle\":\"Salaires\",\"debit\":1500,\"credit\":0}]}. Montants en nombres, 0 si absent, ignorer les totaux."}
+            {"type": "text", "text": prompt}
         ]
     else:
-        content = [{"type": "text", "text": f"Contenu du fichier :\n\n{file_content_text}\n\nExtrais TOUTES les lignes d'ecritures. JSON uniquement sans markdown : {{\"ecritures\":[{{\"compte\":\"6411\",\"libelle\":\"Salaires\",\"debit\":1500,\"credit\":0}}]}}. Montants en nombres, 0 si absent, ignorer les totaux."}]
+        content = [{"type": "text", "text": f"Contenu du fichier :\n\n{file_content_text}\n\n{prompt}"}]
 
     response = requests.post(
         'https://api.anthropic.com/v1/messages',
